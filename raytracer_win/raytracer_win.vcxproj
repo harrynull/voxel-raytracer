@@ -142,11 +142,14 @@
     <ClCompile Include="..\Raytracer\Raytracer.cpp" />
     <ClCompile Include="..\Raytracer\Renderer.cpp" />
     <ClCompile Include="..\Raytracer\Shader.cpp" />
+    <ClCompile Include="..\Raytracer\SVO.cpp" />
     <ClCompile Include="..\Raytracer\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Raytracer\linalg.h" />
     <ClInclude Include="..\Raytracer\Renderer.h" />
     <ClInclude Include="..\Raytracer\Shader.h" />
+    <ClInclude Include="..\Raytracer\SVO.h" />
     <ClInclude Include="..\Raytracer\Texture.h" />
     <ClInclude Include="..\Raytracer\Window.h" />
   </ItemGroup>

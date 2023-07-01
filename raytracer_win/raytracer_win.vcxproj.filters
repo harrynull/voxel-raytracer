@@ -27,6 +27,9 @@
     <ClCompile Include="..\Raytracer\Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\Raytracer\SVO.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Raytracer\Window.h">
@@ -40,6 +43,12 @@
     </ClInclude>
     <ClInclude Include="..\Raytracer\Texture.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Raytracer\SVO.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Raytracer\linalg.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,11 +1,12 @@
 #include "Window.h"
 
 #include <glad/glad.h>
+#include <functional>
 
 static void initGlfw() {
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 }
 
@@ -18,6 +19,11 @@ Window::Window(size_t width, size_t height, const char* title, Renderer& rendere
 	gladLoadGL();
 	glViewport(0, 0, width, height);
 	renderer.setWindow(this);
+
+	static Renderer& r = renderer;
+	glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+		r.handleKey(key);
+	});
 }
 
 Window::~Window() {
@@ -33,7 +39,7 @@ void Window::mainLoop() {
 	renderer.init();
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
-
+		
 		renderer.render();
 		swapBuffers();
 	}
