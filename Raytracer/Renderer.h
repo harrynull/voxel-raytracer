@@ -21,7 +21,7 @@ private:
 	Window* window;
 	GLuint quadVAO = 0, quadVBO = 0; // for rendering the image (screen quad)
 	GLuint svdagBuffer = 0;
-	glm::vec3 cameraPos = { 0.0f, 2.0f, 0.0f };
+	glm::vec3 cameraPos = { 1.0f, 2.0f, 5.0f };
 	glm::vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
 	glm::vec3 cameraFront = { 0.0f, 0.0f, -1.0f };
 };

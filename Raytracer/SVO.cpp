@@ -3,10 +3,10 @@
 
 SVO* SVO::sample() {
 	SVO* root = new SVO();
-	root->children[0] = new SVO();
-	root->children[7] = new SVO();
-	root->children[7]->children[0] = new SVO();
-	root->children[7]->children[7] = new SVO();
+	root->children[1] = new SVO();
+	//root->children[7] = new SVO();
+	//root->children[7]->children[0] = new SVO();
+	//root->children[7]->children[7] = new SVO();
 	return root;
 }
 

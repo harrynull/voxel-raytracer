@@ -116,5 +116,7 @@ void Renderer::handleKey(char key) noexcept {
 		cameraFront = rotate(-PI / 180.f, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
 		break;
 	}
+	printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
+	printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 }
 
