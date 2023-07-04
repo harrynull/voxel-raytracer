@@ -18,6 +18,7 @@ public:
 	static SVO from3DArray(int size, int* data);
 	static SVO* sample();
 	size_t hash();
+	size_t getSize() const noexcept { return size; }
 
 private:
 	void toSVDAGImpl(std::vector<int32_t>& result, std::unordered_map<size_t, size_t>& hashToIndex);

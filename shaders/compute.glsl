@@ -1,11 +1,12 @@
 #version 450 core
 
-#define RootSize 4
-#define Epsilon 0.001
+#define Epsilon 0.0001
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D imgOutput;
 layout(std430, binding = 1) buffer svdag { int svdagData[]; };
+
+uniform int RootSize;
 
 uniform vec3 cameraPos, cameraFront, cameraUp;
 
@@ -82,8 +83,22 @@ bool findNodeAt(in vec3 position, out bool filled, out AABB boxout) {
   return false; // shouldn't be here
 }
 
+int normalHelper(float pt, float boxSize) {
+    return pt < Epsilon * 1.01 ? -1 : (pt > boxSize - Epsilon * 1.01 ? 1 : 0);
+}
+
+vec3 getNormal(in vec3 pt, in AABB box) {
+    vec3 localized = pt - box.min; // size 1x1x1
+    // its on one of the faces
+    return normalize(vec3(
+        normalHelper(localized.x, box.size.x),
+        normalHelper(localized.y, box.size.y),
+        normalHelper(localized.z, box.size.z)
+    ));
+}
+
 // return hit info
-bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition) {
+bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 normal) {
   int recursion = 0;
   vec3 ro = rayOri;
 
@@ -102,6 +117,7 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition) {
     // if that point is filled, then just return color
     if (filled) {
       hitPosition = ro - rayDir * Epsilon * 2;
+      normal = getNormal(ro, box);
       return true;
     }
 
@@ -110,6 +126,8 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition) {
     if (t.y < 0)
       break;
     ro += rayDir * (t.y + Epsilon);
+    if (ro.x > RootSize || ro.y > RootSize || ro.z > RootSize || ro.x < 0 || ro.y < 0 || ro.z < 0)
+      break;
   }
   return false;
 }
@@ -117,15 +135,19 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition) {
 // return color
 vec4 shade(in vec3 rayOri, in vec3 rayDir) {
   vec3 hitPosition;
-  bool hit = raytrace(rayOri, rayDir, hitPosition);
+  vec3 hitNormal;
+  bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal);
   if (!hit) return vec4(0, 0, 0, 1);
-   
-  vec3 hitPos2;
-  bool light = !raytrace(hitPosition, normalize(vec3(-0.75, 0.75, 0.75)), hitPos2);
+
+  vec3 hitPos2, hitNormal2;
+  const vec3 lightDir = normalize(vec3(-0.5, 0.75, 0.8));
+  const vec4 lightColor = vec4(0, 1, 0, 1) * vec4(1, 1, 1, 1);
+  vec4 color = vec4(0, 0, 0, 1);
+  bool light = !raytrace(hitPosition, lightDir, hitPos2, hitNormal2);
   if (light) {
-    return vec4(0, 1, 0, 1);
+    color = dot(hitNormal, lightDir) * lightColor;
   }
-  return vec4(0, 0.5, 0, 1);
+  return color;
 }
 
 /// Camera stuff

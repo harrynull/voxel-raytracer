@@ -50,10 +50,13 @@ void Renderer::init() noexcept {
 	std::vector<int32_t> svdag;
 	svo->toSVDAG(svdag);
 	std::cout << "SVDAG size " << svdag.size() << std::endl;
-
 	glCreateBuffers(1, &svdagBuffer);
 	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, svdagBuffer);
+	computeShader->use();
+	computeShader->setInt("RootSize", svo->getSize());
+
+	delete svo;
 }
 
 void Renderer::render() const noexcept {

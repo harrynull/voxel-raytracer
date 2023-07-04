@@ -2,7 +2,7 @@
 #include <functional>
 
 SVO* SVO::sample() {
-	/*constexpr int size = 16;
+	constexpr int size = 16;
 	SVO* root = new SVO(size);
 	for (int x = 0; x != size; ++x) {
 		for (int z = 0; z != size; ++z) {
@@ -11,14 +11,14 @@ SVO* SVO::sample() {
 			}
 		}
 	}
-	return root;*/
-	
+	return root;
+	/*
 	SVO* root = new SVO(4);
 	root->children[0] = new SVO(2);
 	root->children[7] = new SVO(2);
 	root->children[7]->children[0] = new SVO(1);
 	root->children[7]->children[7] = new SVO(1);
-	return root;
+	return root;*/
 }
 
 void SVO::set(size_t x, size_t y, size_t z, glm::uvec3 rgb) {
