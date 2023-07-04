@@ -1,6 +1,7 @@
 #version 450 core
 
 #define RootSize 2
+#define Epsilon 0.001
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D imgOutput;
@@ -22,24 +23,13 @@ bool AABBInside(in vec3 pt, in AABB aabb) {
 // Returns (tNear, tFar), no intersection if tNear > tFar
 // slab method
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, in AABB box) {
-  vec3 tMin = (box.min - rayOrigin) / rayDir;
-  
-  // change z definition?
-  vec3 boxMax = box.min+box.size;
-  boxMax.z -= box.size.z * 2;
-  vec3 tMax = (boxMax - rayOrigin) / rayDir;
-
+  vec3 tMin = (box.min - rayOrigin)/ rayDir;
+  vec3 tMax = (box.min+box.size - rayOrigin) / rayDir;
   vec3 t1 = min(tMin, tMax);
   vec3 t2 = max(tMin, tMax);
   float tNear = max(max(t1.x, t1.y), t1.z);
   float tFar = min(min(t2.x, t2.y), t2.z);
   return vec2(tNear, tFar);
-}
-
-// return ray direction for screen position
-vec3 screenToRay(in vec2 screenPos) {
-  vec2 uv = (screenPos.xy - 0.5 * gl_NumWorkGroups.xy) / gl_NumWorkGroups.y;
-  return normalize(vec3(uv, 1.0));
 }
 
 // returns the index of the subnode at `position` normalized as if the box is of
@@ -50,14 +40,12 @@ int positionToIndex(in vec3 position) {
 
 void transformAABB(in int childrenIndex, inout AABB box) {
   box.size /= 2;
-  if (childrenIndex == 0 || childrenIndex == 2 || childrenIndex == 4 ||
-      childrenIndex == 8)
-    box.min.z -= box.size.z;
-  if (childrenIndex == 2 || childrenIndex == 3 || childrenIndex == 7 ||
-      childrenIndex == 8)
+  if (childrenIndex % 2 == 1) // 1,3,5,7
+    box.min.z += box.size.z;
+  if (childrenIndex == 2 || childrenIndex == 3 || childrenIndex == 6 ||
+      childrenIndex == 7)
     box.min.y += box.size.y;
-  if (childrenIndex == 4 || childrenIndex == 5 || childrenIndex == 7 ||
-      childrenIndex == 8)
+  if (childrenIndex >= 4) // 4,5,6,7
     box.min.x += box.size.x;
 }
 
@@ -101,10 +89,10 @@ vec4 raytrace(in vec3 rayOri, in vec3 rayDir) {
 
   // place ro to inside the box first
   vec2 t = intersectAABB(ro, rayDir, AABB(vec3(0), vec3(RootSize)));
-  if (t.x > t.y) {
+  if (t.x > t.y || t.x < 0 || t.y < 0) {
     return vec4(0.0, 0.0, 0.0, 1.0); // no hit
   }
-  ro = ro + rayDir * (t.x + 0.01);
+  ro += rayDir * (t.x + Epsilon);
 
   for (int i = 0; i < 300; i++) {
     bool filled = false;
@@ -118,7 +106,9 @@ vec4 raytrace(in vec3 rayOri, in vec3 rayDir) {
 
     // otherwise, place ro to the next box. intersect inside aabb here
     vec2 t = intersectAABB(ro, rayDir, box);
-    ro += rayDir * (t.y + 0.01);
+    if (t.y < 0)
+      break;
+    ro += rayDir * (t.y + Epsilon);
   }
   return vec4(0.0, 0.0, 0.0, 1.0);
 }
