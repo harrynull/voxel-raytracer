@@ -2,12 +2,37 @@
 #include <functional>
 
 SVO* SVO::sample() {
-	SVO* root = new SVO();
-	root->children[1] = new SVO();
-	//root->children[7] = new SVO();
-	//root->children[7]->children[0] = new SVO();
-	//root->children[7]->children[7] = new SVO();
+	/*constexpr int size = 16;
+	SVO* root = new SVO(size);
+	for (int x = 0; x != size; ++x) {
+		for (int z = 0; z != size; ++z) {
+			for (int y = 0; y < std::min((x+z)/2, size) ; ++y) {
+				root->set(x, y, z, {});
+			}
+		}
+	}
+	return root;*/
+	
+	SVO* root = new SVO(4);
+	root->children[0] = new SVO(2);
+	root->children[7] = new SVO(2);
+	root->children[7]->children[0] = new SVO(1);
+	root->children[7]->children[7] = new SVO(1);
 	return root;
+}
+
+void SVO::set(size_t x, size_t y, size_t z, glm::uvec3 rgb) {
+	assert(x < size && y < size && z < size);
+	if (size == 1) {
+		assert(x == 0 && y == 0 && z == 0);
+		//children[index]->color = rgb;
+		return;
+	}
+
+	size_t index = int(x / float(size) * 2) * 4 + int(y / float(size) * 2) * 2 + int(z / float(size) * 2);
+	assert(index >= 0 && index <= 7);
+	if (!children[index]) children[index] = new SVO(size / 2);
+	children[index]->set(x % (size / 2), y % (size / 2), z % (size / 2), rgb);
 }
 
 void SVO::toSVDAG(std::vector<int32_t>& result) {

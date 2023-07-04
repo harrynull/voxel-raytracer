@@ -153,6 +153,9 @@
     <ClInclude Include="..\Raytracer\Texture.h" />
     <ClInclude Include="..\Raytracer\Window.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\compute.glsl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -6,6 +6,8 @@
 #include "Window.h"
 #include "SVO.h"
 #include <algorithm>
+
+#define _USE_MATH_DEFINES
 #include <math.h>
 
 void error(int i = 0) {
@@ -44,8 +46,10 @@ void Renderer::init() noexcept {
 	glBindVertexArray(quadVAO);
 
 	auto svo = SVO::sample();
+	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	svo->toSVDAG(svdag);
+	std::cout << "SVDAG size " << svdag.size() << std::endl;
 
 	glCreateBuffers(1, &svdagBuffer);
 	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
@@ -81,42 +85,47 @@ static vec3 rotate(float theta, const vec3& v, const vec3& w) {
 
 	return v0 + c * v1 + s * v2;
 }
-void Renderer::handleKey(char key) noexcept {
-	constexpr float PI = 3.14159265358979323846;
-	constexpr float speed = 1.f;
-	switch (key) {
-	case 'W':
+
+void Renderer::update() noexcept {
+	float speed = keyPressed['X'] ? 0.1 : 0.01;
+	if (keyPressed['W'])
 		cameraPos += cameraFront * speed;
-		break;
-	case 'S':
+	if (keyPressed['S'])
 		cameraPos -= cameraFront * speed;
-		break;
-	case 'A':
+	if (keyPressed['A'])
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-		break;
-	case 'D':
+	if (keyPressed['D'])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-		break;
-	case ' ':
+	if (keyPressed[' '])
 		cameraPos += cameraUp * speed;
-		break;
-	case 'Z':
+	if (keyPressed['Z'])
 		cameraPos -= cameraUp * speed;
-		break;
-	case 'Q': //left
-		cameraFront = rotate(PI / 180.f, cameraFront, cameraUp);
-		break;
-	case 'E':// right
-		cameraFront = rotate(-PI / 180.f, cameraFront, cameraUp);
-		break;
-	case 'R': // up
-		cameraFront = rotate(PI / 180.f, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
-		break;
-	case 'F': // down
-		cameraFront = rotate(-PI / 180.f, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
-		break;
-	}
-	printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
-	printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 }
 
+
+void Renderer::handleKey(char key, int action) noexcept {
+	keyPressed[key] = action != GLFW_RELEASE;
+
+	if (key == 'P' && action == GLFW_PRESS) {
+		printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
+		printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
+	}
+}
+
+
+void Renderer::handleMouseMove(double xpos, double ypos) noexcept {
+	if (!mouseClicked) return;
+	const float sensitivity = 0.01f;
+	const float xoffset = lastMousePos.x - xpos;
+	const float yoffset = lastMousePos.y - ypos;
+	lastMousePos = { xpos, ypos };
+	const float yaw = xoffset * sensitivity;
+	const float pitch = yoffset * sensitivity;
+	cameraFront = rotate(pitch, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
+	cameraFront = rotate(yaw, cameraFront, cameraUp);
+}
+
+void Renderer::handleMouse(int button, int action, double xpos, double ypos) noexcept {
+	mouseClicked = action == GLFW_PRESS;
+	lastMousePos = { xpos, ypos };
+}
