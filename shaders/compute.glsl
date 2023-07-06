@@ -5,10 +5,10 @@
 #define Epsilon 0.0001
 #define PI 3.1415926535897932384626433832795
 #define MAX_BOUNCE 3
-#define SAMPLE_N 3
+#define SAMPLE_N 128
 #define MAX_DEPTH 1024
 #define MAY_RAYTRACE_DEPTH 1024
-#define DIFFUSION_PROB 0.8
+#define DIFFUSION_PROB 0.5
 
 const vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
 const vec3 SunColor = vec3(1, 1, 1);
@@ -165,8 +165,8 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 nor
 
     // if that point is filled, then just return color
     if (filled) {
-      hitPosition = ro - rayDir * Epsilon * 2;
       normal = getNormal(ro, box);
+      hitPosition = ro - rayDir * Epsilon * 2 + normal * Epsilon;
       return true;
     }
 
@@ -193,32 +193,34 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
 
   vec3 hitPosition;
   vec3 hitNormal;
-  vec3 color = vec3(0, 0.5, 0);
+  vec3 color = objCol;
   vec3 coef = vec3(1.0);
+  vec3 hitPos2, hitNormal2;
 
   for(int i = 0; i < MAX_BOUNCE; ++ i) {
     bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal);
+    
     if (!hit && i == 0) return skyColor;
     
-    vec3 hitPos2, hitNormal2;
-    bool light = !raytrace(hitPosition, SunDir, hitPos2, hitNormal2);
-    if (light) {
-        if(rand() <= DIFFUSION_PROB) {
-            coef *= 1 / DIFFUSION_PROB;
-            color = dot(hitNormal, SunDir) * SunColor * objCol;
-            break;
-        } else {
-            rayOri = hitPosition;
-            rayDir = inHemisphere(randVec3(), hitNormal);
-            coef *= dot(hitNormal, rayDir) / (1 - DIFFUSION_PROB) * objCol;
-        }
-    } else {
-        rayOri = hitPosition;
-        rayDir = inHemisphere(randVec3(), hitNormal);
-        coef *= dot(hitNormal, rayDir) * objCol;
+    bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPos2, hitNormal2);
+
+    // last bounce
+    if (i == MAX_BOUNCE - 1) {
+		return light ? dot(hitNormal, SunDir) * SunColor * objCol * coef : vec3(0);
+	}
+
+    // into sky - return
+    if (light && rand() <= DIFFUSION_PROB) {
+        coef *= 1 / DIFFUSION_PROB;
+        return dot(hitNormal, SunDir) * SunColor * objCol * coef;
     }
+
+    // keep going
+    coef *= 0.9 * dot(hitNormal, rayDir) * (light ? (1 - DIFFUSION_PROB) : 1) * objCol;
+    rayOri = hitPosition;
+    rayDir = inHemisphere(randVec3(), hitNormal);
   }
-  return color * coef;
+  return vec3(1,0,0); // shouldn't be here
 }
 
 // return color
