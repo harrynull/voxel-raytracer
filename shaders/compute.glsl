@@ -13,11 +13,27 @@
 const vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
 const vec3 SunColor = vec3(1, 1, 1);
 
+// Types
+// =====
+
+struct AABB {
+  vec3 min;
+  vec3 size;
+};
+
+struct Material {
+  uvec3 rgb;
+  uint padding;
+};
+
 // Inputs
 // ======
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D imgOutput;
 layout(std430, binding = 1) buffer svdag { int svdagData[]; };
+layout(std430, binding = 2) buffer svdagMaterial {
+    Material materials[];
+};
 
 uniform int RootSize;
 uniform vec3 cameraPos, cameraFront, cameraUp;
@@ -27,10 +43,6 @@ uniform bool highQuality;
 
 vec3 skyColor = vec3(.53,.81,.92);
 
-struct AABB {
-  vec3 min;
-  vec3 size;
-};
 
 // Random
 // ======
@@ -100,7 +112,7 @@ void transformAABB(in int childrenIndex, inout AABB box) {
 }
 
 // returns index of the node at `position`, and if its filled
-bool findNodeAt(in vec3 position, out bool filled, out AABB boxout) {
+bool findNodeAt(in vec3 position, out bool filled, out AABB boxout, out Material mat) {
   int level = 0;
   int index = 0;
   AABB box = AABB(vec3(Epsilon), vec3(RootSize)); // initialize to root box
@@ -112,9 +124,10 @@ bool findNodeAt(in vec3 position, out bool filled, out AABB boxout) {
     int bitmask = svdagData[index];
 
     // if no children at all, this entire node is filled
-    if (bitmask == 0) {
+    if ((bitmask & 255) == 0) {
       filled = true;
       boxout = box;
+      mat = materials[bitmask >> 8];
       return true;
     }
 
@@ -147,8 +160,7 @@ vec3 getNormal(in vec3 pt, in AABB box) {
 }
 
 // return hit info
-bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 normal) {
-  int recursion = 0;
+bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 normal, out Material mat) {
   vec3 ro = rayOri;
 
   // place ro to inside the box first
@@ -161,7 +173,7 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 nor
   for (int i = 0; i < MAY_RAYTRACE_DEPTH; i++) {
     bool filled = false;
     AABB box;
-    findNodeAt(ro, filled, box);
+    findNodeAt(ro, filled, box, mat);
 
     // if that point is filled, then just return color
     if (filled) {
@@ -189,20 +201,20 @@ vec3 inHemisphere(vec3 dir, vec3 N) {
 
 // helper for shade
 vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
-  const vec3 objCol = vec3(0., 1., 0.);
-
   vec3 hitPosition;
   vec3 hitNormal;
-  vec3 color = objCol;
   vec3 coef = vec3(1.0);
-  vec3 hitPos2, hitNormal2;
+  vec3 hitPosUnused, hitNormalUnused;
+  Material mat, matUnused;
 
   for(int i = 0; i < MAX_BOUNCE; ++ i) {
-    bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal);
-    
+    bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal, mat);
+    vec3 objCol = vec3(mat.rgb)/255.;
+
+    // no hit
     if (!hit && i == 0) return skyColor;
     
-    bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPos2, hitNormal2);
+    bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPosUnused, hitNormalUnused, matUnused);
 
     // last bounce
     if (i == MAX_BOUNCE - 1) {

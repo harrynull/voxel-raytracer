@@ -48,11 +48,19 @@ void Renderer::init() noexcept {
 	auto svo = SVO::terrain(64);
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
-	svo->toSVDAG(svdag);
-	std::cout << "SVDAG size " << svdag.size() << std::endl;
+	std::vector<SVO::Material> materials;
+	svo->toSVDAG(svdag, materials);
+	std::cout << "SVDAG size " << svdag.size()
+		<< " with " << materials.size() << " materials" << std::endl;
+
 	glCreateBuffers(1, &svdagBuffer);
 	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, svdagBuffer);
+
+	glCreateBuffers(2, &materialsBuffer);
+	glNamedBufferStorage(materialsBuffer, materials.size() * sizeof(SVO::Material), materials.data(), 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, materialsBuffer);
+
 	computeShader->use();
 	computeShader->setInt("RootSize", svo->getSize());
 
