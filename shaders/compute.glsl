@@ -1,19 +1,68 @@
 #version 450 core
 
+// Constants
+// =========
 #define Epsilon 0.0001
+#define PI 3.1415926535897932384626433832795
+#define MAX_BOUNCE 3
+#define SAMPLE_N 3
+#define MAX_DEPTH 1024
+#define MAY_RAYTRACE_DEPTH 1024
+#define DIFFUSION_PROB 0.8
 
+const vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
+const vec3 SunColor = vec3(1, 1, 1);
+
+// Inputs
+// ======
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D imgOutput;
 layout(std430, binding = 1) buffer svdag { int svdagData[]; };
 
 uniform int RootSize;
-
 uniform vec3 cameraPos, cameraFront, cameraUp;
+uniform vec3 RandomSeed;
+uniform int currentFrameCount;
+uniform bool highQuality;
+
+vec3 skyColor = vec3(.53,.81,.92);
 
 struct AABB {
   vec3 min;
   vec3 size;
 };
+
+// Random
+// ======
+vec3 RandomSeedCurrent = RandomSeed + vec3(gl_GlobalInvocationID.xy, 1.0);
+
+// Returns a float in range [0, 1).
+float constructFloat(uint m) {
+  const uint IEEEMantissa = 0x007FFFFFu;
+  const uint IEEEOne = 0x3F800000u;
+  m = (m & IEEEMantissa) | IEEEOne;
+  return uintBitsToFloat(m) - 1.0;
+}
+uint hash(uint x) { x += x << 10u; x ^= x >> 6u; x += x << 3u; x ^= x >> 11u; x += x << 15u; return x; }
+uint hash(uvec2 v) { return hash(v.x ^ hash(v.y)); }
+uint hash(uvec3 v) { return hash(v.x ^ hash(v.yz)); }
+uint hash(uvec4 v) { return hash(v.x ^ hash(v.yzw)); }
+float rand_(vec3 v) { return constructFloat(hash(floatBitsToUint(vec4(v, RandomSeed)))); }
+float rand(){
+    float ret = rand_(RandomSeedCurrent);
+    RandomSeedCurrent += vec3(gl_GlobalInvocationID.xy, ret);
+    return ret;
+}
+// generates a random vec3
+vec3 randVec3() {
+    float phi = rand() * PI;
+    float theta = rand() * 2 * PI;
+    return vec3(sin(phi), cos(phi) * sin(theta), cos(phi) * cos(theta));
+}
+
+
+// SVDAG & Raytracing
+// ===================
 
 // check if `pt` is inside `aabb`
 bool AABBInside(in vec3 pt, in AABB aabb) {
@@ -109,7 +158,7 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 nor
   }
   if (t.x > 0) ro += rayDir * (t.x + Epsilon);
 
-  for (int i = 0; i < 300; i++) {
+  for (int i = 0; i < MAY_RAYTRACE_DEPTH; i++) {
     bool filled = false;
     AABB box;
     findNodeAt(ro, filled, box);
@@ -132,29 +181,61 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 nor
   return false;
 }
 
-// return color
-vec4 shade(in vec3 rayOri, in vec3 rayDir) {
+vec3 inHemisphere(vec3 dir, vec3 N) {
+    float cs = dot(dir, N);    
+    // Reflect applied
+    return cs < 0 ? normalize(dir - 2 * cs * N) : dir;
+}
+
+// helper for shade
+vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
+  const vec3 objCol = vec3(0., 1., 0.);
+
   vec3 hitPosition;
   vec3 hitNormal;
-  bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal);
-  if (!hit) return vec4(0, 0, 0, 1);
+  vec3 color = vec3(0, 0.5, 0);
+  vec3 coef = vec3(1.0);
 
-  vec3 hitPos2, hitNormal2;
-  const vec3 lightDir = normalize(vec3(-0.5, 0.75, 0.8));
-  const vec4 lightColor = vec4(0, 1, 0, 1) * vec4(1, 1, 1, 1);
-  vec4 color = vec4(0, 0, 0, 1);
-  bool light = !raytrace(hitPosition, lightDir, hitPos2, hitNormal2);
-  if (light) {
-    color = dot(hitNormal, lightDir) * lightColor;
+  for(int i = 0; i < MAX_BOUNCE; ++ i) {
+    bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal);
+    if (!hit && i == 0) return skyColor;
+    
+    vec3 hitPos2, hitNormal2;
+    bool light = !raytrace(hitPosition, SunDir, hitPos2, hitNormal2);
+    if (light) {
+        if(rand() <= DIFFUSION_PROB) {
+            coef *= 1 / DIFFUSION_PROB;
+            color = dot(hitNormal, SunDir) * SunColor * objCol;
+            break;
+        } else {
+            rayOri = hitPosition;
+            rayDir = inHemisphere(randVec3(), hitNormal);
+            coef *= dot(hitNormal, rayDir) / (1 - DIFFUSION_PROB) * objCol;
+        }
+    } else {
+        rayOri = hitPosition;
+        rayDir = inHemisphere(randVec3(), hitNormal);
+        coef *= dot(hitNormal, rayDir) * objCol;
+    }
   }
-  return color;
+  return color * coef;
+}
+
+// return color
+vec4 shade(in vec3 rayOri, in vec3 rayDir) {
+    const int rayNum = highQuality ? SAMPLE_N : 1;
+    vec3 color = vec3(0, 0, 0);
+    for(int i = 0; i < rayNum; ++ i) {
+        color += shadeOnce(rayOri, rayDir);
+    }
+    return vec4(color / rayNum, 1);
 }
 
 /// Camera stuff
 
 // glsl-square-frame
-vec2 square(vec2 screenSize) {
-  vec2 position = 2.0 * (gl_GlobalInvocationID.xy / screenSize.xy) - 1.0;
+vec2 square(vec2 pixelPos, vec2 screenSize) {
+  vec2 position = 2.0 * (pixelPos / screenSize) - 1.0;
   position.x *= screenSize.x / screenSize.y;
   return position;
 }
@@ -179,9 +260,12 @@ vec3 getRay(vec3 origin, vec3 target, vec2 screenPos, float lensLength) {
 }
 
 void main() {
+  ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 screenSize = ivec2(gl_NumWorkGroups.xy);
+  
   vec3 rayOri = cameraPos; // camera position
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
-                       square(gl_NumWorkGroups.xy), 2.0);
-  imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy),
-             shade(rayOri, rayDir));
+                       square(pos, screenSize), 2.0);
+  vec4 color = shade(rayOri, rayDir);
+  imageStore(imgOutput, pos, color);
 }

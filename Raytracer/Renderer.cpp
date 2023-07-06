@@ -45,7 +45,7 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	auto svo = SVO::sample();
+	auto svo = SVO::terrain(64);
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	svo->toSVDAG(svdag);
@@ -59,12 +59,17 @@ void Renderer::init() noexcept {
 	delete svo;
 }
 
-void Renderer::render() const noexcept {
+void Renderer::render() noexcept {
 	// Raytrace with compute shader
 	computeShader->use();
 	computeShader->setVec3("cameraPos", cameraPos);
 	computeShader->setVec3("cameraUp", cameraUp);
 	computeShader->setVec3("cameraFront", cameraFront);
+	computeShader->setVec3("RandomSeed", glm::vec3(rand(), rand(), rand()));
+	computeShader->setInt("currentFrameCount", currentFrameCount);
+	computeShader->setBool("highQuality", highQuality);
+
+	currentFrameCount += 1;
 
 	glDispatchCompute(window->width(), window->height(), 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -90,7 +95,9 @@ static vec3 rotate(float theta, const vec3& v, const vec3& w) {
 }
 
 void Renderer::update() noexcept {
-	float speed = keyPressed['X'] ? 0.1 : 0.01;
+	float speed = keyPressed['X'] ? 1.f : 0.1f;
+	if (keyPressed['C']) speed *= 100;
+	auto oldCameraPos = cameraPos;
 	if (keyPressed['W'])
 		cameraPos += cameraFront * speed;
 	if (keyPressed['S'])
@@ -103,6 +110,7 @@ void Renderer::update() noexcept {
 		cameraPos += cameraUp * speed;
 	if (keyPressed['Z'])
 		cameraPos -= cameraUp * speed;
+	if (cameraPos != oldCameraPos) currentFrameCount = 0;
 }
 
 
@@ -113,6 +121,7 @@ void Renderer::handleKey(char key, int action) noexcept {
 		printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
 		printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 	}
+	if (key == 'Q' && action == GLFW_PRESS) highQuality = !highQuality;
 }
 
 
@@ -126,6 +135,7 @@ void Renderer::handleMouseMove(double xpos, double ypos) noexcept {
 	const float pitch = yoffset * sensitivity;
 	cameraFront = rotate(pitch, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
 	cameraFront = rotate(yaw, cameraFront, cameraUp);
+	currentFrameCount = 0;
 }
 
 void Renderer::handleMouse(int button, int action, double xpos, double ypos) noexcept {

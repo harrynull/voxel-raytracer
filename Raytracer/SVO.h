@@ -14,11 +14,13 @@ public:
 
 	void set(size_t x, size_t y, size_t z, glm::uvec3 rgb);
 	void toSVDAG(std::vector<int32_t>& result);
-	static SVO voxelise(const char* filename, int size);
-	static SVO from3DArray(int size, int* data);
-	static SVO* sample();
+
 	size_t hash();
 	size_t getSize() const noexcept { return size; }
+
+	static SVO* sample();
+	static SVO* terrain(int size);
+	static SVO* stair(int size);
 
 private:
 	void toSVDAGImpl(std::vector<int32_t>& result, std::unordered_map<size_t, size_t>& hashToIndex);

@@ -150,6 +150,7 @@
     <ClInclude Include="..\Raytracer\Renderer.h" />
     <ClInclude Include="..\Raytracer\Shader.h" />
     <ClInclude Include="..\Raytracer\SVO.h" />
+    <ClInclude Include="..\Raytracer\Terrain.h" />
     <ClInclude Include="..\Raytracer\Texture.h" />
     <ClInclude Include="..\Raytracer\Window.h" />
   </ItemGroup>

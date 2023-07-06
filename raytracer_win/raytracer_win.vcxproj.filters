@@ -50,6 +50,9 @@
     <ClInclude Include="..\Raytracer\linalg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Raytracer\Terrain.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\compute.glsl">
