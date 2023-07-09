@@ -5,7 +5,7 @@
 #define Epsilon 0.0001
 #define PI 3.1415926535897932384626433832795
 #define MAX_BOUNCE 3
-#define SAMPLE_N 128
+#define SAMPLE_N 512
 #define MAX_DEPTH 1024
 #define MAY_RAYTRACE_DEPTH 1024
 #define DIFFUSION_PROB 0.5
@@ -85,8 +85,9 @@ bool AABBInside(in vec3 pt, in AABB aabb) {
 // Returns (tNear, tFar), no intersection if tNear > tFar
 // slab method
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, in AABB box) {
-  vec3 tMin = (box.min - rayOrigin)/ rayDir;
-  vec3 tMax = (box.min+box.size - rayOrigin) / rayDir;
+  vec3 invRayDir = 1.0 / rayDir;
+  vec3 tMin = (box.min - rayOrigin) * invRayDir;
+  vec3 tMax = (box.min+box.size - rayOrigin) * invRayDir;
   vec3 t1 = min(tMin, tMax);
   vec3 t2 = max(tMin, tMax);
   float tNear = max(max(t1.x, t1.y), t1.z);
@@ -281,5 +282,7 @@ void main() {
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
                        square(pos, screenSize), 2.0);
   vec4 color = shade(rayOri, rayDir);
-  imageStore(imgOutput, pos, color);
+  imageStore(imgOutput, pos, 
+      currentFrameCount == 0 ? color : mix(imageLoad(imgOutput, pos), color, 1.0 / currentFrameCount)
+  );
 }

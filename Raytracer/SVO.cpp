@@ -26,8 +26,8 @@ SVO* SVO::terrain(int size) {
 			for (int y = 0; y < height; ++y) {
 				root->set(
 					x, y, z,
-					{ x * (256 / size),y * (256 / size),z * (256 / size) }
-					//	y == height - 1 ? glm::uvec3 {0, 255, 0} : glm::uvec3 {155, 118, 83}
+					{ x * 256 / size,y * 256 / size,z * 256 / size }
+				//	y == height - 1 ? glm::uvec3 {0, 255, 0} : glm::uvec3 {155, 118, 83}
 				);
 			}
 		}
