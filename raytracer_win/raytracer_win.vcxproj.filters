@@ -30,6 +30,9 @@
     <ClCompile Include="..\Raytracer\SVO.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\Raytracer\VoxLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Raytracer\Window.h">
@@ -51,6 +54,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Raytracer\Terrain.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Raytracer\VoxLoader.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

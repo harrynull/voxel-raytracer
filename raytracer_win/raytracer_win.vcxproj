@@ -143,6 +143,7 @@
     <ClCompile Include="..\Raytracer\Renderer.cpp" />
     <ClCompile Include="..\Raytracer\Shader.cpp" />
     <ClCompile Include="..\Raytracer\SVO.cpp" />
+    <ClCompile Include="..\Raytracer\VoxLoader.cpp" />
     <ClCompile Include="..\Raytracer\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -152,6 +153,7 @@
     <ClInclude Include="..\Raytracer\SVO.h" />
     <ClInclude Include="..\Raytracer\Terrain.h" />
     <ClInclude Include="..\Raytracer\Texture.h" />
+    <ClInclude Include="..\Raytracer\VoxLoader.h" />
     <ClInclude Include="..\Raytracer\Window.h" />
   </ItemGroup>
   <ItemGroup>

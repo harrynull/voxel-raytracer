@@ -1,6 +1,6 @@
 ﻿#include "SVO.h"
 #include <functional>
-
+#include "VoxLoader.h"
 #include "Terrain.h"
 
 SVO* SVO::sample() {
@@ -62,6 +62,14 @@ SVO* SVO::stair(int size) {
 			}
 		}
 	}
+	return root;
+}
+
+SVO* SVO::fromVox(const char* filename) {
+	SVO* root = new SVO(256);
+	loadVox(filename, [&](int x, int y, int z, glm::uvec3 color) {
+		root->set(x, y, z, color);
+		});
 	return root;
 }
 

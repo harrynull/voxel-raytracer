@@ -32,6 +32,7 @@ public:
 	static SVO* sample();
 	static SVO* terrain(int size);
 	static SVO* stair(int size);
+	static SVO* fromVox(const char* filename);
 
 private:
 	struct MaterialHasher {
