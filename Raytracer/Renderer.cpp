@@ -45,7 +45,7 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	auto svo = SVO::terrain(256);
+	auto svo = SVO::terrain(64);
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	std::vector<SVO::Material> materials;

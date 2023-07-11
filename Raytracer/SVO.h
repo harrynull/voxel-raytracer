@@ -10,9 +10,9 @@ class SVO {
 public:
 	struct Material {
 		glm::uvec3 color;
-		unsigned _; // padding for alignment
+		unsigned int water = 0;
 		bool operator==(const Material& other) const noexcept {
-			return color == other.color;
+			return color == other.color && water == other.water;
 		}
 	};
 
@@ -23,7 +23,7 @@ public:
 	SVO& operator=(SVO&) = delete;
 	SVO& operator=(SVO&&) = delete;
 
-	void set(size_t x, size_t y, size_t z, glm::uvec3 rgb);
+	void set(size_t x, size_t y, size_t z, glm::uvec3 rgb, bool water = false);
 	void toSVDAG(std::vector<int32_t>& svdag, std::vector<Material>& materials);
 
 	size_t hash();
@@ -37,7 +37,7 @@ private:
 	struct MaterialHasher {
 		std::size_t operator() (const Material& mat) const {
 			std::hash<unsigned int> hasher;
-			return hasher((mat.color.r << 16) | (mat.color.g << 8) | (mat.color.b));
+			return hasher((mat.color.r << 16) | (mat.color.g << 8) | (mat.color.b) | (mat.water << 24));
 		}
 	};
 

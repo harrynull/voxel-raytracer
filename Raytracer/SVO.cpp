@@ -14,20 +14,38 @@ SVO* SVO::sample() {
 
 	root->children[7]->children[7] = new SVO(1);
 	root->children[7]->children[7]->material.color = { 0, 0, 255 };
+	root->children[7]->children[7]->material.water = 1;
+
+	root->children[5] = new SVO(2);
+	root->children[5]->children[0] = new SVO(1);
+	root->children[5]->children[0]->material.color = { 255, 255, 255 };
+	root->children[5]->children[0]->material.water = 1;
 	return root;
 }
 
 SVO* SVO::terrain(int size) {
+	constexpr int waterLevel = 32;
+	constexpr glm::uvec3 waterColor = { 35, 137, 218 },
+		grassColor = { 38, 139, 7 },
+		grassColor2 = { 65, 152, 10 },
+		dirtColor = { 155, 118, 83 },
+		sandColor = { 246,215,176 };
+
 	Noise noise;
 	SVO* root = new SVO(size);
 	for (int x = 0; x != size; ++x) {
 		for (int z = 0; z != size; ++z) {
 			const auto height = std::min(noise(x, z), size);
-			for (int y = 0; y < height; ++y) {
+			const bool underWater = height < waterLevel;
+			for (int y = 0; y < std::max(waterLevel, height); ++y) {
 				root->set(
 					x, y, z,
-					{ x * 256 / size,y * 256 / size,z * 256 / size }
-				//	y == height - 1 ? glm::uvec3 {0, 255, 0} : glm::uvec3 {155, 118, 83}
+					//{ x * 256 / size,y * 256 / size,z * 256 / size }
+					y >= height ? waterColor :
+						(y == height - 1 ?
+							(underWater ? sandColor: (rand() > RAND_MAX / 2 ? grassColor : grassColor2)) :
+							dirtColor),
+					y >= height
 				);
 			}
 		}
@@ -47,18 +65,19 @@ SVO* SVO::stair(int size) {
 	return root;
 }
 
-void SVO::set(size_t x, size_t y, size_t z, glm::uvec3 rgb) {
+void SVO::set(size_t x, size_t y, size_t z, glm::uvec3 rgb, bool water) {
 	assert(x < size && y < size && z < size);
 	if (size == 1) {
 		assert(x == 0 && y == 0 && z == 0);
 		material.color = rgb;
+		material.water = water;
 		return;
 	}
 
 	size_t index = int(x / float(size) * 2) * 4 + int(y / float(size) * 2) * 2 + int(z / float(size) * 2);
 	assert(index >= 0 && index <= 7);
 	if (!children[index]) children[index] = new SVO(size / 2);
-	children[index]->set(x % (size / 2), y % (size / 2), z % (size / 2), rgb);
+	children[index]->set(x % (size / 2), y % (size / 2), z % (size / 2), rgb, water);
 }
 
 void SVO::toSVDAG(std::vector<int32_t>& result, std::vector<Material>& materials) {

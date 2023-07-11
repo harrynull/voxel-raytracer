@@ -23,7 +23,7 @@ struct AABB {
 
 struct Material {
   uvec3 rgb;
-  uint padding;
+  uint water;
 };
 
 // Inputs
@@ -161,8 +161,18 @@ vec3 getNormal(in vec3 pt, in AABB box) {
 }
 
 // return hit info
-bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 normal, out Material mat) {
+bool raytrace(
+    in vec3 rayOri,
+    in vec3 rayDir,
+    out vec3 hitPosition,
+    out vec3 normal,
+    out Material mat,
+    bool ignoreWater,
+    out vec3 lastRayOri
+) {
   vec3 ro = rayOri;
+  
+  lastRayOri = ro;
 
   // place ro to inside the box first
   vec2 t = intersectAABB(ro, rayDir, AABB(vec3(0), vec3(RootSize)));
@@ -175,9 +185,11 @@ bool raytrace(in vec3 rayOri, in vec3 rayDir, out vec3 hitPosition, out vec3 nor
     bool filled = false;
     AABB box;
     findNodeAt(ro, filled, box, mat);
+    
+    lastRayOri = ro;
 
     // if that point is filled, then just return color
-    if (filled) {
+    if (filled && (!ignoreWater || mat.water == 0)) {
       normal = getNormal(ro, box);
       hitPosition = ro - rayDir * Epsilon * 2 + normal * Epsilon;
       return true;
@@ -200,38 +212,95 @@ vec3 inHemisphere(vec3 dir, vec3 N) {
     return cs < 0 ? normalize(dir - 2 * cs * N) : dir;
 }
 
-// helper for shade
-vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
-  vec3 hitPosition;
-  vec3 hitNormal;
-  vec3 coef = vec3(1.0);
-  vec3 hitPosUnused, hitNormalUnused;
-  Material mat, matUnused;
-
-  for(int i = 0; i < MAX_BOUNCE; ++ i) {
-    bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal, mat);
-    vec3 objCol = vec3(mat.rgb)/255.;
-
-    // no hit
-    if (!hit && i == 0) return skyColor;
-    
-    bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPosUnused, hitNormalUnused, matUnused);
-
-    // last bounce
-    if (i == MAX_BOUNCE - 1) {
-		return light ? dot(hitNormal, SunDir) * SunColor * objCol * coef : vec3(0);
+float reflection_ratio(in vec3 rayDir, in vec3 normal, float eta1, float eta2) {
+    float cosTheta = dot(rayDir, normal);
+    if (cosTheta < 0) {
+		float tmp = eta1;
+		eta1 = eta2;
+		eta2 = tmp;
+		cosTheta = -cosTheta;
+		normal = -normal;
 	}
 
-    // into sky - return
-    if (light && rand() <= DIFFUSION_PROB) {
-        coef *= 1 / DIFFUSION_PROB;
-        return dot(hitNormal, SunDir) * SunColor * objCol * coef;
-    }
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+	if (sinTheta * eta2 > eta1) return 1.0;
+	float cosTheta2 = sqrt(1.0 - sinTheta * sinTheta * eta2 * eta2 / (eta1 * eta1));
+	float rOrth = (eta1 * cosTheta - eta2 * cosTheta2) / (eta1 * cosTheta + eta2 * cosTheta2);
+	float rPar = (eta2 * cosTheta - eta1 * cosTheta2) / (eta2 * cosTheta + eta1 * cosTheta2);
+	return (rOrth * rOrth + rPar * rPar) / 2.0;
+}
 
-    // keep going
-    coef *= 0.9 * dot(hitNormal, rayDir) * (light ? (1 - DIFFUSION_PROB) : 1) * objCol;
-    rayOri = hitPosition;
-    rayDir = inHemisphere(randVec3(), hitNormal);
+void handleReflectionAndRefraction(
+    inout vec3 rayOri,
+    inout vec3 rayDir,
+    in vec3 hitNormal,
+    in vec3 hitPosition,
+    inout float curIR,
+    in float newIR,
+    inout vec3 coef
+) {
+    float prob_reflect = reflection_ratio(rayDir, hitNormal, curIR, newIR);
+
+    if (rand() <= prob_reflect) {
+      coef *= 1 / prob_reflect;
+      rayOri = hitPosition;
+      rayDir = reflect(rayDir, hitNormal);
+    }
+    else {
+      coef *= 1 / (1-prob_reflect);
+      rayOri = hitPosition;
+      rayDir = refract(rayDir, hitNormal, curIR / newIR);
+    }
+    curIR = newIR;
+}
+
+// helper for shade
+vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
+  const float WaterIR = 1.33;
+
+  vec3 hitPosition, hitNormal, hitLastRayOri;
+  vec3 coef = vec3(1.0);
+  vec3 hitPosUnused, hitNormalUnused, hitLastRayOriUnused;
+  Material mat, matUnused;
+  float curIR = 1; // air
+
+  for (int i = 0; i < MAX_BOUNCE; ++i) {
+      bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal, mat, abs(curIR-1)>Epsilon, hitLastRayOri);
+      vec3 objCol = vec3(mat.rgb) / 255.;
+      
+      float newIR = hit ? (mat.water != 0 ? WaterIR : -1) : 1;
+      // no hit
+      if (!hit) {
+        if (abs(curIR - newIR) > Epsilon && i != MAX_BOUNCE - 1) {
+           handleReflectionAndRefraction(rayOri, rayDir, hitNormal, hitPosition, curIR, newIR, coef);
+           continue;
+        }
+
+        return i == 0 ? skyColor : dot(hitNormal, SunDir) * SunColor * objCol * coef;
+      }
+
+      bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPosUnused, hitNormalUnused, matUnused, true, hitLastRayOri);
+      
+      // last bounce
+      if (i == MAX_BOUNCE - 1) {
+          return light ? dot(hitNormal, SunDir) * SunColor * objCol * coef : vec3(0);
+      }
+
+      if (newIR > 0 && abs(curIR - newIR) > Epsilon) {
+          handleReflectionAndRefraction(rayOri, rayDir, hitNormal, hitPosition, curIR, newIR, coef);
+          continue;
+      }
+
+      // into sky - return
+      if (light && rand() <= DIFFUSION_PROB) {
+          coef *= 1 / DIFFUSION_PROB;
+          return dot(hitNormal, SunDir) * SunColor * objCol * coef;
+      }
+
+      // keep going
+      rayOri = hitPosition;
+      coef *= 0.9 * dot(hitNormal, rayDir) * (light ? (1 - DIFFUSION_PROB) : 1) * objCol;
+      rayDir = inHemisphere(randVec3(), hitNormal);
   }
   return vec3(1,0,0); // shouldn't be here
 }
@@ -275,14 +344,17 @@ vec3 getRay(vec3 origin, vec3 target, vec2 screenPos, float lensLength) {
 }
 
 void main() {
-  ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+  vec2 pos = gl_GlobalInvocationID.xy;
   ivec2 screenSize = ivec2(gl_NumWorkGroups.xy);
   
+  pos += (vec2(rand(), rand()) * 2.0 - 1.0) * 1.0; // anti-aliasing
+
   vec3 rayOri = cameraPos; // camera position
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
                        square(pos, screenSize), 2.0);
+  
   vec4 color = shade(rayOri, rayDir);
-  imageStore(imgOutput, pos, 
-      currentFrameCount == 0 ? color : mix(imageLoad(imgOutput, pos), color, 1.0 / currentFrameCount)
+  imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy),
+      currentFrameCount == 0 ? color : mix(imageLoad(imgOutput, ivec2(gl_GlobalInvocationID.xy)), color, 1.0 / currentFrameCount)
   );
 }
