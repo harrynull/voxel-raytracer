@@ -59,6 +59,9 @@
     <ClInclude Include="..\Raytracer\VoxLoader.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Raytracer\stb_image_write.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\compute.glsl">

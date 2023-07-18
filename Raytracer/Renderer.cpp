@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "Renderer.h"
 
 #include <cassert>
@@ -6,6 +8,11 @@
 #include "Window.h"
 #include "SVO.h"
 #include <algorithm>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+#include <sstream>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -45,7 +52,8 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	auto svo = SVO::fromVox("vox/chr_knight.vox"); //SVO::terrain(64);
+	//auto svo = SVO::fromVox("vox/chr_knight.vox"); //SVO::terrain(64);
+	auto svo = SVO::sample();
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	std::vector<SVO::Material> materials;
@@ -130,6 +138,25 @@ void Renderer::handleKey(char key, int action) noexcept {
 		printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 	}
 	if (key == 'Q' && action == GLFW_PRESS) highQuality = !highQuality;
+	if (key == 'E' && action == GLFW_PRESS) {
+		std::stringstream filename;
+		filename << "screenshots/screenshot_" << time(nullptr) << ".png";
+		printf("Saving screenshot to %s\n", filename.str().data());
+		auto data = texture->dump();
+		// convert to int and also flip and apply gamma correction
+		constexpr float Gamma = 2.2f;
+		std::vector<char> idata(data.size());
+		for (size_t x = 0; x < window->width(); x++)
+			for (size_t y = 0; y < window->height(); y++)
+				for (size_t c = 0; c < 4; c++) {
+					float floatVal = data[(x + (window->height() - y - 1) * window->width()) * 4 + c];
+					floatVal = clamp(floatVal, 0.f, 1.f);
+					floatVal = powf(floatVal, 1.f / Gamma);
+					idata[(x + y * window->width()) * 4 + c] =
+						int(floatVal * 255);
+				}
+		stbi_write_png(filename.str().data(), window->width(), window->height(), 4, idata.data(), window->width() * 4);
+	}
 }
 
 

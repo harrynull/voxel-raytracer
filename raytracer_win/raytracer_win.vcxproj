@@ -150,6 +150,7 @@
     <ClInclude Include="..\Raytracer\linalg.h" />
     <ClInclude Include="..\Raytracer\Renderer.h" />
     <ClInclude Include="..\Raytracer\Shader.h" />
+    <ClInclude Include="..\Raytracer\stb_image_write.h" />
     <ClInclude Include="..\Raytracer\SVO.h" />
     <ClInclude Include="..\Raytracer\Terrain.h" />
     <ClInclude Include="..\Raytracer\Texture.h" />

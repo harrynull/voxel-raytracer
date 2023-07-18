@@ -1,8 +1,9 @@
 #pragma once
+#include <vector>
 
 class Texture {
 public:
-	Texture(size_t width, size_t height) {
+	Texture(size_t width, size_t height) : width(width), height(height) {
 		glGenTextures(1, &texture);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
@@ -18,7 +19,15 @@ public:
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
+	std::vector<float> dump() const noexcept {
+		bind();
+		std::vector<float> data;
+		data.resize(width * height * 4 * sizeof(float));
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, data.data());
+		return data;
+	}
 private:
 	unsigned int texture;
+	size_t width, height;
 };
 
