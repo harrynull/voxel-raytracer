@@ -145,18 +145,35 @@ bool findNodeAt(in vec3 position, out bool filled, out AABB boxout, out Material
   return false; // shouldn't be here
 }
 
+// returns -1 if close to 0, or 1 if close to boxSize, or 0 otherwise
 int normalHelper(float pt, float boxSize) {
-    return pt < Epsilon * 1.01 ? -1 : (pt > boxSize - Epsilon * 1.01 ? 1 : 0);
+    return pt < Epsilon * 2 ? -1 : (pt > boxSize - Epsilon * 2 ? 1 : 0);
+}
+
+int componentClosest(vec3 pt, float target) {
+    vec3 dist = abs(pt - target);
+    // if even the closest has a very large distance, then return -1 as mismatch
+    if (min(dist.x, min(dist.y, dist.z)) > Epsilon * 2) {
+		return -1;
+	}
+    if (dist.x < dist.y && dist.x < dist.z) {
+		return 0;
+	} else if(dist.y < dist.z) {
+		return 1;
+	} else {
+		return 2;
+	}
 }
 
 vec3 getNormal(in vec3 pt, in AABB box) {
-    vec3 localized = pt - box.min; // size 1x1x1
-    // its on one of the faces
-    return normalize(vec3(
-        normalHelper(localized.x, box.size.x),
-        normalHelper(localized.y, box.size.y),
-        normalHelper(localized.z, box.size.z)
-    ));
+    vec3 localized = pt - box.min;
+
+    int cMin = componentClosest(localized, 0);
+    if (cMin != -1) {
+        return vec3(cMin == 0 ? -1 : 0, cMin == 1 ? -1 : 0, cMin == 2 ? -1 : 0);
+    }
+    int cMax = componentClosest(localized, box.size.x);
+    return vec3(cMax == 0 ? 1 : 0, cMax == 1 ? 1 : 0, cMax == 2 ? 1 : 0);
 }
 
 // return hit info
@@ -265,8 +282,9 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
 
   for (int i = 0; i < MAX_BOUNCE; ++i) {
       bool hit = raytrace(rayOri, rayDir, hitPosition, hitNormal, mat, abs(curIR-1)>Epsilon, hitLastRayOri);
+            
       vec3 objCol = vec3(mat.rgb) / 255.;
-      
+      //return hitNormal/2+.5;
       float newIR = hit ? (mat.water != 0 ? WaterIR : -1) : 1;
       // no hit
       if (!hit) {
@@ -297,8 +315,8 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
       }
 
       // keep going
+      coef *= 0.9 * dot(hitNormal, -rayDir) * (light ? (1 - DIFFUSION_PROB) : 1) * objCol;
       rayOri = hitPosition;
-      coef *= 0.9 * dot(hitNormal, rayDir) * (light ? (1 - DIFFUSION_PROB) : 1) * objCol;
       rayDir = inHemisphere(randVec3(), hitNormal);
   }
   return vec3(1,0,0); // shouldn't be here
@@ -307,6 +325,8 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
 // return color
 vec4 shade(in vec3 rayOri, in vec3 rayDir) {
     vec3 color = shadeOnce(rayOri, rayDir);
+    //if (clamp(color, 0, 1) != color)
+	  //return vec4(1, 1, 0, 1); // debug: check for out of bound rgb
     return vec4(clamp(color, 0, 1), 1);
 }
 
@@ -355,7 +375,7 @@ void main() {
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
                        square(pos, screenSize), 2.0);
   
-  depthOfField(rayOri, rayDir, 5, 0.5);
+  //depthOfField(rayOri, rayDir, 5, 0.5);
 
   vec4 color = shade(rayOri, rayDir);
   //imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy), color);
