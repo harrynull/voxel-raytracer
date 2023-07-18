@@ -52,8 +52,8 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	//auto svo = SVO::fromVox("vox/chr_knight.vox");
-	auto svo = SVO::terrain(64);
+	//auto svo = SVO::fromVox("vox/teapot.vox");
+	auto svo = SVO::terrain(1024);
 	//auto svo = SVO::sample();
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
@@ -66,9 +66,15 @@ void Renderer::init() noexcept {
 	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, svdagBuffer);
 
-	glCreateBuffers(2, &materialsBuffer);
+	glCreateBuffers(1, &materialsBuffer);
 	glNamedBufferStorage(materialsBuffer, materials.size() * sizeof(SVO::Material), materials.data(), 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, materialsBuffer);
+
+	glCreateBuffers(1, &autoFocusBuffer);
+	glNamedBufferStorage(autoFocusBuffer, sizeof(float), nullptr, GL_MAP_READ_BIT);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, autoFocusBuffer);
+	// map to autoFocus
+	autoFocus = static_cast<float*>(glMapNamedBufferRange(autoFocusBuffer, 0, sizeof(float), GL_MAP_READ_BIT));
 
 	computeShader->use();
 	computeShader->setInt("RootSize", svo->getSize());
@@ -84,6 +90,9 @@ void Renderer::render() noexcept {
 	computeShader->setVec3("cameraFront", cameraFront);
 	computeShader->setVec3("RandomSeed", glm::vec3(rand(), rand(), rand()));
 	computeShader->setInt("currentFrameCount", currentFrameCount);
+	computeShader->setBool("DepthOfField", enableDepthOfField);
+	computeShader->setFloat("FocalLength", focalLength);
+	computeShader->setFloat("LenRadius", lenRadius);
 
 	currentFrameCount += 1;
 
@@ -126,6 +135,28 @@ void Renderer::update() noexcept {
 		cameraPos += cameraUp * speed;
 	if (keyPressed['Z'])
 		cameraPos -= cameraUp * speed;
+	if (keyPressed['O']) {
+		focalLength += 1.f;
+		currentFrameCount = 0;
+	}
+	if (keyPressed['P']) {
+		focalLength -= 1.f;
+		focalLength = std::max(focalLength, 0.0f);
+		currentFrameCount = 0;
+	}
+	if (keyPressed['I']) {
+		focalLength = *autoFocus;
+		currentFrameCount = 0;
+	}
+	if (keyPressed['K']) {
+		lenRadius += 0.01f;
+		currentFrameCount = 0;
+	}
+	if (keyPressed['L']) {
+		lenRadius -= 0.01f;
+		lenRadius = std::max(lenRadius, 0.0f);
+		currentFrameCount = 0;
+	}
 	if (cameraPos != oldCameraPos) currentFrameCount = 0;
 }
 
@@ -133,11 +164,17 @@ void Renderer::update() noexcept {
 void Renderer::handleKey(char key, int action) noexcept {
 	keyPressed[key] = action != GLFW_RELEASE;
 
-	if (key == 'P' && action == GLFW_PRESS) {
+	if (key == 'M' && action == GLFW_PRESS) {
 		printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
 		printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
+		printf("DOF (%d): focalLength = %f, lenRadius = %f, autoFocus=%f\n", enableDepthOfField, focalLength, lenRadius, *autoFocus);
 	}
-	if (key == 'E' && action == GLFW_PRESS) {
+	if (key == 'Q' && action == GLFW_PRESS) {
+		enableDepthOfField = !enableDepthOfField;
+		printf("Depth of field %s\n", enableDepthOfField ? "enabled" : "disabled");
+		currentFrameCount = 0;
+	}
+	if (key == 'E' && action == GLFW_PRESS) { // take a screenshot
 		std::stringstream filename;
 		filename << "screenshots/screenshot_" << time(nullptr) << ".png";
 		printf("Saving screenshot to %s\n", filename.str().data());

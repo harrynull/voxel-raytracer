@@ -23,7 +23,7 @@ private:
 	std::optional<Texture> texture = std::nullopt;
 	Window* window;
 	GLuint quadVAO = 0, quadVBO = 0; // for rendering the image (screen quad)
-	GLuint svdagBuffer = 0, materialsBuffer;
+	GLuint svdagBuffer = 0, materialsBuffer, autoFocusBuffer;
 	glm::vec3 cameraPos = { -2.6f, 60.7f, -0.5f };
 	glm::vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
 	glm::vec3 cameraFront = { 0.7f, -0.2f, 0.7f };
@@ -33,4 +33,9 @@ private:
 	bool keyPressed[256] = { false };
 
 	size_t currentFrameCount = 0;
+	bool enableDepthOfField = false;
+	float focalLength = 5.f;
+	float lenRadius = 0.1f;
+
+	float* autoFocus = nullptr;
 };

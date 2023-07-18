@@ -5,7 +5,6 @@
 #define Epsilon 0.0001
 #define PI 3.1415926535897932384626433832795
 #define MAX_BOUNCE 3
-#define SAMPLE_N 512
 #define MAX_DEPTH 1024
 #define MAY_RAYTRACE_DEPTH 1024
 #define DIFFUSION_PROB 0.5
@@ -34,11 +33,18 @@ layout(std430, binding = 1) buffer svdag { int svdagData[]; };
 layout(std430, binding = 2) buffer svdagMaterial {
     Material materials[];
 };
+// output for length
+layout(std430, binding = 3) writeonly buffer AFBuffer {
+	float AutoFocusLength;
+};
 
 uniform int RootSize;
 uniform vec3 cameraPos, cameraFront, cameraUp;
 uniform vec3 RandomSeed;
 uniform int currentFrameCount;
+uniform bool DepthOfField;
+uniform float FocalLength;
+uniform float LenRadius;
 
 vec3 skyColor = vec3(.53,.81,.92);
 
@@ -375,8 +381,18 @@ void main() {
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
                        square(pos, screenSize), 2.0);
   
-  //depthOfField(rayOri, rayDir, 5, 0.5);
+  // calculate distance for Auto Focus
+  if (gl_GlobalInvocationID.xy == ivec2(gl_NumWorkGroups.xy) / 2) {
+    vec3 hitPosition, hitNormal, hitLastRayOri;
+    Material mat;
+    if (raytrace(rayOri, rayDir, hitPosition, hitNormal, mat, false, hitLastRayOri)) {
+        AutoFocusLength = distance(hitPosition, cameraPos);
+    }
+  }
 
+  if(DepthOfField)
+    depthOfField(rayOri, rayDir, FocalLength, LenRadius);
+    
   vec4 color = shade(rayOri, rayDir);
   //imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy), color);
   imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy),
