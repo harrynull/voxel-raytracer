@@ -39,7 +39,6 @@ uniform int RootSize;
 uniform vec3 cameraPos, cameraFront, cameraUp;
 uniform vec3 RandomSeed;
 uniform int currentFrameCount;
-uniform bool highQuality;
 
 vec3 skyColor = vec3(.53,.81,.92);
 
@@ -307,12 +306,8 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
 
 // return color
 vec4 shade(in vec3 rayOri, in vec3 rayDir) {
-    const int rayNum = highQuality ? SAMPLE_N : 1;
-    vec3 color = vec3(0, 0, 0);
-    for(int i = 0; i < rayNum; ++ i) {
-        color += shadeOnce(rayOri, rayDir);
-    }
-    return vec4(color / rayNum, 1);
+    vec3 color = shadeOnce(rayOri, rayDir);
+    return vec4(clamp(color, 0, 1), 1);
 }
 
 /// Camera stuff
@@ -343,6 +338,13 @@ vec3 getRay(vec3 origin, vec3 target, vec2 screenPos, float lensLength) {
   return getRay(camMat, screenPos, lensLength);
 }
 
+void depthOfField(inout vec3 origin, inout vec3 dir, float focalLength, float lensRadius) {
+    vec3 focalPoint = origin + dir * focalLength;
+    vec3 lensOffset = vec3(vec2(rand(), rand()) * lensRadius, 0.0);
+    origin += lensOffset;
+    dir = normalize(focalPoint - origin);
+}
+
 void main() {
   vec2 pos = gl_GlobalInvocationID.xy;
   ivec2 screenSize = ivec2(gl_NumWorkGroups.xy);
@@ -353,7 +355,10 @@ void main() {
   vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
                        square(pos, screenSize), 2.0);
   
+  depthOfField(rayOri, rayDir, 5, 0.5);
+
   vec4 color = shade(rayOri, rayDir);
+  //imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy), color);
   imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy),
       currentFrameCount == 0 ? color : mix(imageLoad(imgOutput, ivec2(gl_GlobalInvocationID.xy)), color, 1.0 / currentFrameCount)
   );

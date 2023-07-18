@@ -33,5 +33,4 @@ private:
 	bool keyPressed[256] = { false };
 
 	size_t currentFrameCount = 0;
-	bool highQuality = false;
 };

@@ -52,8 +52,9 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	//auto svo = SVO::fromVox("vox/chr_knight.vox"); //SVO::terrain(64);
-	auto svo = SVO::sample();
+	//auto svo = SVO::fromVox("vox/chr_knight.vox");
+	auto svo = SVO::terrain(64);
+	//auto svo = SVO::sample();
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	std::vector<SVO::Material> materials;
@@ -83,7 +84,6 @@ void Renderer::render() noexcept {
 	computeShader->setVec3("cameraFront", cameraFront);
 	computeShader->setVec3("RandomSeed", glm::vec3(rand(), rand(), rand()));
 	computeShader->setInt("currentFrameCount", currentFrameCount);
-	computeShader->setBool("highQuality", highQuality);
 
 	currentFrameCount += 1;
 
@@ -137,7 +137,6 @@ void Renderer::handleKey(char key, int action) noexcept {
 		printf("Camera position: (%f, %f, %f)\n", cameraPos.x, cameraPos.y, cameraPos.z);
 		printf("CameraFront: (%f, %f, %f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 	}
-	if (key == 'Q' && action == GLFW_PRESS) highQuality = !highQuality;
 	if (key == 'E' && action == GLFW_PRESS) {
 		std::stringstream filename;
 		filename << "screenshots/screenshot_" << time(nullptr) << ".png";
