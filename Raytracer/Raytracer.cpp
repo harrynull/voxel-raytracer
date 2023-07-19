@@ -5,7 +5,7 @@
 
 int main() {
 	Renderer renderer;
-	Window window(800, 600, "Raytracer", renderer);
+	Window window(1920, 1080, "Raytracer", renderer);
 	glClearColor(0.f, 0.f, 0.f, 1.0f);
 	window.mainLoop();
 }

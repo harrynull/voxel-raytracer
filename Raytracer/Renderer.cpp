@@ -9,6 +9,10 @@
 #include "SVO.h"
 #include <algorithm>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -16,6 +20,8 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
+
+#include <filesystem>
 
 void error(int i = 0) {
 	auto err = glGetError();
@@ -25,11 +31,61 @@ void error(int i = 0) {
 	}
 }
 
+void Renderer::loadSVO(SVO& svo) {
+	//auto svo = SVO::sample();
+	std::cout << "Scene loaded / generated!" << std::endl;
+	std::vector<int32_t> svdag;
+	std::vector<SVO::Material> materials;
+	svo.toSVDAG(svdag, materials);
+	std::cout << "SVDAG size " << svdag.size()
+		<< " with " << materials.size() << " materials" << std::endl;
+	sceneSize = svdag.size();
+	nMaterials = materials.size();
+	rootSize = svo.getSize();
+
+	if(svdagBuffer) glDeleteBuffers(1, &svdagBuffer);
+	if(materialsBuffer) glDeleteBuffers(1, &materialsBuffer);
+
+	glCreateBuffers(1, &svdagBuffer);
+	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, svdagBuffer);
+
+	glCreateBuffers(1, &materialsBuffer);
+	glNamedBufferStorage(materialsBuffer, materials.size() * sizeof(SVO::Material), materials.data(), 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, materialsBuffer);
+
+	computeShader->use();
+	computeShader->setInt("RootSize", svo.getSize());
+}
+
+void Renderer::loadScenes() {
+	scenes.clear();
+	scenes.push_back(std::make_unique<TestScene>());
+	scenes.push_back(std::make_unique<TerrainScene>());
+	// iter vox files
+	if (std::filesystem::exists("vox")) {
+		for (auto& p : std::filesystem::directory_iterator("vox")) {
+			if (p.path().extension() == ".vox") {
+				scenes.push_back(std::make_unique<VoxModelScene>(p.path().string()));
+			}
+		}
+	}
+}
+
 void Renderer::init() noexcept {
 	renderShader.emplace("shaders/vertex.glsl", "shaders/fragment.glsl", nullptr);
 	computeShader.emplace(nullptr, nullptr, "shaders/compute.glsl");
 	computeShader->use();
 	texture.emplace(window->width(), window->height());
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	ImGui_ImplGlfw_InitForOpenGL(window->getGLFWwindow(), true);
+	ImGui_ImplOpenGL3_Init();
 
 	float quadVertices[] = {
 		// positions        // texture Coords
@@ -52,37 +108,82 @@ void Renderer::init() noexcept {
 	texture.value().bind();
 	glBindVertexArray(quadVAO);
 
-	//auto svo = SVO::fromVox("vox/teapot.vox");
-	auto svo = SVO::terrain(1024);
-	//auto svo = SVO::sample();
-	std::cout << "Scene loaded / generated!" << std::endl;
-	std::vector<int32_t> svdag;
-	std::vector<SVO::Material> materials;
-	svo->toSVDAG(svdag, materials);
-	std::cout << "SVDAG size " << svdag.size()
-		<< " with " << materials.size() << " materials" << std::endl;
-
-	glCreateBuffers(1, &svdagBuffer);
-	glNamedBufferStorage(svdagBuffer, svdag.size() * sizeof(int32_t), svdag.data(), 0);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, svdagBuffer);
-
-	glCreateBuffers(1, &materialsBuffer);
-	glNamedBufferStorage(materialsBuffer, materials.size() * sizeof(SVO::Material), materials.data(), 0);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, materialsBuffer);
-
+	computeShader->use();
+	// autoFocus buffer for receving output
 	glCreateBuffers(1, &autoFocusBuffer);
 	glNamedBufferStorage(autoFocusBuffer, sizeof(float), nullptr, GL_MAP_READ_BIT);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, autoFocusBuffer);
 	// map to autoFocus
 	autoFocus = static_cast<float*>(glMapNamedBufferRange(autoFocusBuffer, 0, sizeof(float), GL_MAP_READ_BIT));
 
-	computeShader->use();
-	computeShader->setInt("RootSize", svo->getSize());
+	loadScenes();
+	loadSVO(*(scenes[0]->load(0))); // load the first scene
+}
 
-	delete svo;
+void Renderer::renderUI() noexcept {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	ImGui::Begin("SVO Raytracer");
+
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+	ImGui::Text("Frames accumulated %d", currentFrameCount);
+	ImGui::Text("Scene size: %d bytes, materials count: %d, root size: %d", sceneSize, nMaterials, rootSize);
+	ImGui::Spacing();
+	ImGui::DragFloat3("Camera Position", &cameraPos[0]);
+	ImGui::DragFloat3("Camera front", &cameraFront[0]);
+	ImGui::Spacing();
+	ImGui::Checkbox("Enable Depth of Field", &enableDepthOfField);
+	ImGui::DragFloat("Focal Length", &focalLength);
+	ImGui::DragFloat("Lens Radius", &lenRadius);
+	ImGui::Text("Look-at distance: %.3f", *autoFocus);
+	ImGui::SameLine();
+	if (ImGui::Button("Auto focus")) {
+		focalLength = *autoFocus;
+	}
+	ImGui::Spacing();
+
+	static int currentSelection = 0;
+	auto& currentScene = scenes[currentSelection];
+	if (ImGui::BeginCombo("Scene", currentScene->getDisplayName(), 0))
+	{
+		for (size_t n = 0; n < scenes.size(); n++)
+		{
+			const bool isSelected = (currentSelection == n);
+			if (ImGui::Selectable(scenes[n]->getDisplayName(), isSelected)) {
+				currentSelection = n;
+			    loadSVO(*(scenes[n]->load(256)));
+			}
+			if (isSelected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+
+	static char paramInput[64] = "256";
+	if (currentScene->hasParam()) {
+		ImGui::InputText(currentScene->getParamName(), paramInput, 64, ImGuiInputTextFlags_CharsDecimal);
+		ImGui::SameLine();
+		if (ImGui::Button("Set")) {
+			loadSVO(*(currentScene->load(std::stoi(paramInput))));
+		}
+	}
+
+	if (ImGui::Button("Screenshot")) {
+		takeScreenshot();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Re-render")) {
+		currentFrameCount = 0;
+	}
+
+	ImGui::End();
 }
 
 void Renderer::render() noexcept {
+	renderUI();
+
 	// Raytrace with compute shader
 	computeShader->use();
 	computeShader->setVec3("cameraPos", cameraPos);
@@ -105,6 +206,9 @@ void Renderer::render() noexcept {
 	glActiveTexture(GL_TEXTURE0);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 using namespace glm;
@@ -175,26 +279,29 @@ void Renderer::handleKey(char key, int action) noexcept {
 		currentFrameCount = 0;
 	}
 	if (key == 'E' && action == GLFW_PRESS) { // take a screenshot
-		std::stringstream filename;
-		filename << "screenshots/screenshot_" << time(nullptr) << ".png";
-		printf("Saving screenshot to %s\n", filename.str().data());
-		auto data = texture->dump();
-		// convert to int and also flip and apply gamma correction
-		constexpr float Gamma = 2.2f;
-		std::vector<char> idata(data.size());
-		for (size_t x = 0; x < window->width(); x++)
-			for (size_t y = 0; y < window->height(); y++)
-				for (size_t c = 0; c < 4; c++) {
-					float floatVal = data[(x + (window->height() - y - 1) * window->width()) * 4 + c];
-					floatVal = clamp(floatVal, 0.f, 1.f);
-					floatVal = powf(floatVal, 1.f / Gamma);
-					idata[(x + y * window->width()) * 4 + c] =
-						int(floatVal * 255);
-				}
-		stbi_write_png(filename.str().data(), window->width(), window->height(), 4, idata.data(), window->width() * 4);
+		takeScreenshot();
 	}
 }
 
+void Renderer::takeScreenshot() {
+	std::stringstream filename;
+	filename << "screenshots/screenshot_" << time(nullptr) << "_" << currentFrameCount << ".png";
+	printf("Saving screenshot to %s\n", filename.str().data());
+	auto data = texture->dump();
+	// convert to int and also flip and apply gamma correction
+	constexpr float Gamma = 2.2f;
+	std::vector<char> idata(data.size());
+	for (size_t x = 0; x < window->width(); x++)
+		for (size_t y = 0; y < window->height(); y++)
+			for (size_t c = 0; c < 4; c++) {
+				float floatVal = data[(x + (window->height() - y - 1) * window->width()) * 4 + c];
+				floatVal = clamp(floatVal, 0.f, 1.f);
+				floatVal = powf(floatVal, 1.f / Gamma);
+				idata[(x + y * window->width()) * 4 + c] =
+					int(floatVal * 255);
+			}
+	stbi_write_png(filename.str().data(), window->width(), window->height(), 4, idata.data(), window->width() * 4);
+}
 
 void Renderer::handleMouseMove(double xpos, double ypos) noexcept {
 	if (!mouseClicked) return;

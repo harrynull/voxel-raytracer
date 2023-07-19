@@ -139,6 +139,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Raytracer\imgui.cpp" />
+    <ClCompile Include="..\Raytracer\imgui_draw.cpp" />
+    <ClCompile Include="..\Raytracer\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\Raytracer\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="..\Raytracer\imgui_tables.cpp" />
+    <ClCompile Include="..\Raytracer\imgui_widgets.cpp" />
     <ClCompile Include="..\Raytracer\Raytracer.cpp" />
     <ClCompile Include="..\Raytracer\Renderer.cpp" />
     <ClCompile Include="..\Raytracer\Shader.cpp" />
@@ -147,8 +153,10 @@
     <ClCompile Include="..\Raytracer\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Raytracer\imgui.h" />
     <ClInclude Include="..\Raytracer\linalg.h" />
     <ClInclude Include="..\Raytracer\Renderer.h" />
+    <ClInclude Include="..\Raytracer\Scene.h" />
     <ClInclude Include="..\Raytracer\Shader.h" />
     <ClInclude Include="..\Raytracer\stb_image_write.h" />
     <ClInclude Include="..\Raytracer\SVO.h" />

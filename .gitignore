@@ -39,3 +39,6 @@ CMakeFiles/
 *.rdc
 *.pdb
 x64/
+
+imgui.ini
+screenshots/

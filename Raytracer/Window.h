@@ -18,6 +18,8 @@ public:
 	void mainLoop();
 	size_t width() const noexcept { return mWidth; }
 	size_t height() const noexcept { return mHeight; }
+
+	GLFWwindow* getGLFWwindow() const noexcept { return window; }
 private:
 	GLFWwindow* window;
 	Renderer& renderer;

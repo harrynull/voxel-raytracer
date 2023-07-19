@@ -1,8 +1,10 @@
 #pragma once
 #include <optional>
+#include <memory>
+#include <glm/glm.hpp>
 #include "Shader.h"
 #include "Texture.h"
-#include <glm/glm.hpp>
+#include "Scene.h"
 
 class Window;
 
@@ -19,6 +21,12 @@ public:
 	void handleMouseMove(double xpos, double ypos) noexcept;
 	void handleMouse(int button, int action, double xpos, double ypos) noexcept;
 private:
+	void renderUI() noexcept;
+	void takeScreenshot();
+	void checkForAccumulationFrameInvalidation() noexcept;
+	void loadSVO(SVO& svo);
+	void loadScenes();
+
 	std::optional<Shader> computeShader = std::nullopt, renderShader = std::nullopt;
 	std::optional<Texture> texture = std::nullopt;
 	Window* window;
@@ -38,4 +46,10 @@ private:
 	float lenRadius = 0.1f;
 
 	float* autoFocus = nullptr;
+
+	// stats
+	size_t sceneSize = 0, nMaterials = 0, rootSize = 0;
+
+	// scenes
+	std::vector<std::unique_ptr<Scene>> scenes;
 };
