@@ -40,10 +40,28 @@ public:
 		return "Terrain";
 	}
 	bool hasParam() override { return true; }
-	const char* getParamName() override { return "Terrain Size"; }
+	const char* getParamName() override { return "Size"; }
 private:
 	SVO* scene = nullptr;
 };
+
+class StairScene : public Scene {
+public:
+	StairScene() = default;
+	~StairScene() { delete scene; }
+	SVO* load(int param) override {
+		if (scene) delete scene;
+		return scene = SVO::stair(param);
+	}
+	const char* getDisplayName() override {
+		return "Stair";
+	}
+	bool hasParam() override { return true; }
+	const char* getParamName() override { return "Size"; }
+private:
+	SVO* scene = nullptr;
+};
+
 
 class VoxModelScene : public Scene {
 public:

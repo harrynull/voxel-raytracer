@@ -45,6 +45,10 @@ private:
 	float focalLength = 5.f;
 	float lenRadius = 0.1f;
 
+	glm::vec3 sunDir { -0.5, 0.75, 0.8 };
+	glm::vec3 sunColor { 1, 1, 1 };
+	glm::vec3 skyColor { .53, .81, .92 };
+
 	float* autoFocus = nullptr;
 
 	// stats

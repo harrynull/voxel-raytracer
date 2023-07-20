@@ -5,12 +5,9 @@
 #define Epsilon 0.0001
 #define PI 3.1415926535897932384626433832795
 #define MAX_BOUNCE 3
-#define MAX_DEPTH 1024
-#define MAY_RAYTRACE_DEPTH 1024
+#define MAX_DEPTH 4096
+#define MAY_RAYTRACE_DEPTH 4096
 #define DIFFUSION_PROB 0.5
-
-const vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
-const vec3 SunColor = vec3(1, 1, 1);
 
 // Types
 // =====
@@ -39,14 +36,16 @@ layout(std430, binding = 3) writeonly buffer AFBuffer {
 };
 
 uniform int RootSize;
-uniform vec3 cameraPos, cameraFront, cameraUp;
+uniform vec3 CameraPos, CameraFront, CameraUp;
 uniform vec3 RandomSeed;
-uniform int currentFrameCount;
+uniform int CurrentFrameCount;
 uniform bool DepthOfField;
 uniform float FocalLength;
 uniform float LenRadius;
 
-vec3 skyColor = vec3(.53,.81,.92);
+uniform vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
+uniform vec3 SunColor = vec3(1, 1, 1);
+uniform vec3 SkyColor = vec3(.53,.81,.92);
 
 
 // Random
@@ -299,7 +298,7 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
            continue;
         }
 
-        return i == 0 ? skyColor : dot(hitNormal, SunDir) * SunColor * objCol * coef;
+        return i == 0 ? SkyColor : dot(hitNormal, SunDir) * SunColor * objCol * coef;
       }
 
       bool light = dot(hitNormal, SunDir) > 0 && !raytrace(hitPosition, SunDir, hitPosUnused, hitNormalUnused, matUnused, true, hitLastRayOri);
@@ -377,8 +376,8 @@ void main() {
   
   pos += (vec2(rand(), rand()) * 2.0 - 1.0) * 1.0; // anti-aliasing
 
-  vec3 rayOri = cameraPos; // camera position
-  vec3 rayDir = getRay(cameraPos, cameraPos + cameraFront,
+  vec3 rayOri = CameraPos; // camera position
+  vec3 rayDir = getRay(CameraPos, CameraPos + CameraFront,
                        square(pos, screenSize), 2.0);
   
   // calculate distance for Auto Focus
@@ -386,7 +385,7 @@ void main() {
     vec3 hitPosition, hitNormal, hitLastRayOri;
     Material mat;
     if (raytrace(rayOri, rayDir, hitPosition, hitNormal, mat, false, hitLastRayOri)) {
-        AutoFocusLength = distance(hitPosition, cameraPos);
+        AutoFocusLength = distance(hitPosition, CameraPos);
     }
   }
 
@@ -396,6 +395,6 @@ void main() {
   vec4 color = shade(rayOri, rayDir);
   //imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy), color);
   imageStore(imgOutput, ivec2(gl_GlobalInvocationID.xy),
-      currentFrameCount == 0 ? color : mix(imageLoad(imgOutput, ivec2(gl_GlobalInvocationID.xy)), color, 1.0 / currentFrameCount)
+      CurrentFrameCount == 0 ? color : mix(imageLoad(imgOutput, ivec2(gl_GlobalInvocationID.xy)), color, 1.0 / CurrentFrameCount)
   );
 }

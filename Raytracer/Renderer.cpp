@@ -32,7 +32,6 @@ void error(int i = 0) {
 }
 
 void Renderer::loadSVO(SVO& svo) {
-	//auto svo = SVO::sample();
 	std::cout << "Scene loaded / generated!" << std::endl;
 	std::vector<int32_t> svdag;
 	std::vector<SVO::Material> materials;
@@ -56,12 +55,14 @@ void Renderer::loadSVO(SVO& svo) {
 
 	computeShader->use();
 	computeShader->setInt("RootSize", svo.getSize());
+	currentFrameCount = 0;
 }
 
 void Renderer::loadScenes() {
 	scenes.clear();
 	scenes.push_back(std::make_unique<TestScene>());
 	scenes.push_back(std::make_unique<TerrainScene>());
+	scenes.push_back(std::make_unique<StairScene>());
 	// iter vox files
 	if (std::filesystem::exists("vox")) {
 		for (auto& p : std::filesystem::directory_iterator("vox")) {
@@ -134,6 +135,10 @@ void Renderer::renderUI() noexcept {
 	ImGui::DragFloat3("Camera Position", &cameraPos[0]);
 	ImGui::DragFloat3("Camera front", &cameraFront[0]);
 	ImGui::Spacing();
+	ImGui::ColorEdit3("Sky color", &skyColor[0]);
+	ImGui::ColorEdit3("Sun color", &sunColor[0]);
+	ImGui::DragFloat3("Sun direction", &sunDir[0]);
+	ImGui::Spacing();
 	ImGui::Checkbox("Enable Depth of Field", &enableDepthOfField);
 	ImGui::DragFloat("Focal Length", &focalLength);
 	ImGui::DragFloat("Lens Radius", &lenRadius);
@@ -153,7 +158,7 @@ void Renderer::renderUI() noexcept {
 			const bool isSelected = (currentSelection == n);
 			if (ImGui::Selectable(scenes[n]->getDisplayName(), isSelected)) {
 				currentSelection = n;
-			    loadSVO(*(scenes[n]->load(256)));
+			    loadSVO(*(scenes[n]->load(32)));
 			}
 			if (isSelected)
 				ImGui::SetItemDefaultFocus();
@@ -161,7 +166,7 @@ void Renderer::renderUI() noexcept {
 		ImGui::EndCombo();
 	}
 
-	static char paramInput[64] = "256";
+	static char paramInput[64] = "32";
 	if (currentScene->hasParam()) {
 		ImGui::InputText(currentScene->getParamName(), paramInput, 64, ImGuiInputTextFlags_CharsDecimal);
 		ImGui::SameLine();
@@ -181,19 +186,47 @@ void Renderer::renderUI() noexcept {
 	ImGui::End();
 }
 
+void Renderer::checkForAccumulationFrameInvalidation() noexcept {
+	static glm::vec3 cameraPosLastFrame = cameraPos, cameraFrontLastFrame = cameraFront;
+	static bool enableDepthOfFieldLastFrame = enableDepthOfField;
+	static float focalLengthLastFrame = focalLength, lenRadiusLastFrame = lenRadius;
+	static glm::vec3 skyColorLastFrame = skyColor, sunColorLastFrame = sunColor, sunDirLastFrame = sunDir;
+	if (cameraPos != cameraPosLastFrame ||
+		cameraFront != cameraFrontLastFrame ||
+		enableDepthOfField != enableDepthOfFieldLastFrame ||
+		focalLength != focalLengthLastFrame ||
+		lenRadius != lenRadiusLastFrame ||
+		skyColor != skyColorLastFrame ||
+		sunColor != sunColorLastFrame ||
+		sunDir != sunDirLastFrame
+		)  currentFrameCount = 0;
+	cameraPosLastFrame = cameraPos;
+	cameraFrontLastFrame = cameraFront;
+	enableDepthOfFieldLastFrame = enableDepthOfField;
+	focalLengthLastFrame = focalLength;
+	lenRadiusLastFrame = lenRadius;
+	skyColorLastFrame = skyColor;
+	sunColorLastFrame = sunColor;
+	sunDirLastFrame = sunDir;
+}
+
 void Renderer::render() noexcept {
 	renderUI();
+	checkForAccumulationFrameInvalidation();
 
 	// Raytrace with compute shader
 	computeShader->use();
-	computeShader->setVec3("cameraPos", cameraPos);
-	computeShader->setVec3("cameraUp", cameraUp);
-	computeShader->setVec3("cameraFront", cameraFront);
+	computeShader->setVec3("CameraPos", cameraPos);
+	computeShader->setVec3("CameraUp", cameraUp);
+	computeShader->setVec3("CameraFront", cameraFront);
 	computeShader->setVec3("RandomSeed", glm::vec3(rand(), rand(), rand()));
-	computeShader->setInt("currentFrameCount", currentFrameCount);
+	computeShader->setInt("CurrentFrameCount", currentFrameCount);
 	computeShader->setBool("DepthOfField", enableDepthOfField);
 	computeShader->setFloat("FocalLength", focalLength);
 	computeShader->setFloat("LenRadius", lenRadius);
+	computeShader->setVec3("SkyColor", skyColor);
+	computeShader->setVec3("SunColor", sunColor);
+	computeShader->setVec3("SunDir", sunDir);
 
 	currentFrameCount += 1;
 
@@ -226,42 +259,17 @@ static vec3 rotate(float theta, const vec3& v, const vec3& w) {
 void Renderer::update() noexcept {
 	float speed = keyPressed['X'] ? 1.f : 0.1f;
 	if (keyPressed['C']) speed *= 100;
-	auto oldCameraPos = cameraPos;
-	if (keyPressed['W'])
-		cameraPos += cameraFront * speed;
-	if (keyPressed['S'])
-		cameraPos -= cameraFront * speed;
-	if (keyPressed['A'])
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-	if (keyPressed['D'])
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-	if (keyPressed[' '])
-		cameraPos += cameraUp * speed;
-	if (keyPressed['Z'])
-		cameraPos -= cameraUp * speed;
-	if (keyPressed['O']) {
-		focalLength += 1.f;
-		currentFrameCount = 0;
-	}
-	if (keyPressed['P']) {
-		focalLength -= 1.f;
-		focalLength = std::max(focalLength, 0.0f);
-		currentFrameCount = 0;
-	}
-	if (keyPressed['I']) {
-		focalLength = *autoFocus;
-		currentFrameCount = 0;
-	}
-	if (keyPressed['K']) {
-		lenRadius += 0.01f;
-		currentFrameCount = 0;
-	}
-	if (keyPressed['L']) {
-		lenRadius -= 0.01f;
-		lenRadius = std::max(lenRadius, 0.0f);
-		currentFrameCount = 0;
-	}
-	if (cameraPos != oldCameraPos) currentFrameCount = 0;
+	if (keyPressed['W']) cameraPos += cameraFront * speed;
+	if (keyPressed['S']) cameraPos -= cameraFront * speed;
+	if (keyPressed['A']) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
+	if (keyPressed['D']) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
+	if (keyPressed[' ']) cameraPos += cameraUp * speed;
+	if (keyPressed['Z']) cameraPos -= cameraUp * speed;
+	if (keyPressed['O']) focalLength += 1.f;
+	if (keyPressed['P']) focalLength = std::max(focalLength - 1.f, 0.0f);
+	if (keyPressed['I']) focalLength = *autoFocus;
+	if (keyPressed['K']) lenRadius += 0.01f;
+	if (keyPressed['L']) lenRadius = std::max(lenRadius - 0.01f, 0.0f);
 }
 
 
@@ -313,7 +321,6 @@ void Renderer::handleMouseMove(double xpos, double ypos) noexcept {
 	const float pitch = yoffset * sensitivity;
 	cameraFront = rotate(pitch, cameraFront, glm::normalize(glm::cross(cameraFront, cameraUp)));
 	cameraFront = rotate(yaw, cameraFront, cameraUp);
-	currentFrameCount = 0;
 }
 
 void Renderer::handleMouse(int button, int action, double xpos, double ypos) noexcept {

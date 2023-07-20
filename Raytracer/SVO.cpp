@@ -37,7 +37,8 @@ SVO* SVO::terrain(int size) {
 		for (int z = 0; z != size; ++z) {
 			const auto height = std::min(noise(x, z), size);
 			const bool underWater = height < waterLevel;
-			for (int y = 0; y < std::max(waterLevel, height); ++y) {
+			const auto yMax = std::min(size, std::max(waterLevel, height));
+			for (int y = 0; y < yMax; ++y) {
 				root->set(
 					x, y, z,
 					//{ x * 256 / size,y * 256 / size,z * 256 / size }
@@ -58,7 +59,7 @@ SVO* SVO::stair(int size) {
 	for (int x = 0; x != size; ++x) {
 		for (int z = 0; z != size; ++z) {
 			for (int y = 0; y < std::min(x + z, size); ++y) {
-				root->set(x, y, z, {});
+				root->set(x, y, z, {0,0,255});
 			}
 		}
 	}
