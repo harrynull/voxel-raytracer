@@ -9,6 +9,7 @@ public:
 	virtual const char* getDisplayName() = 0;
 	virtual bool hasParam() { return false; }
 	virtual const char* getParamName() { return nullptr; }
+	virtual void release() {}
 };
 
 class TestScene: public Scene {
@@ -41,6 +42,7 @@ public:
 	}
 	bool hasParam() override { return true; }
 	const char* getParamName() override { return "Size"; }
+	void release() override { delete scene; scene = nullptr; }
 private:
 	SVO* scene = nullptr;
 };

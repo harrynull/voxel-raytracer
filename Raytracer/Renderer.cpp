@@ -65,7 +65,7 @@ void Renderer::loadScenes() {
 	scenes.push_back(std::make_unique<StairScene>());
 	// iter vox files
 	if (std::filesystem::exists("vox")) {
-		for (auto& p : std::filesystem::directory_iterator("vox")) {
+		for (auto& p : std::filesystem::recursive_directory_iterator("vox")) {
 			if (p.path().extension() == ".vox") {
 				scenes.push_back(std::make_unique<VoxModelScene>(p.path().string()));
 			}
@@ -148,6 +148,9 @@ void Renderer::renderUI() noexcept {
 		focalLength = *autoFocus;
 	}
 	ImGui::Spacing();
+	ImGui::Checkbox("Fast Mode", &fastMode);
+	ImGui::Spacing();
+
 
 	static int currentSelection = 0;
 	auto& currentScene = scenes[currentSelection];
@@ -159,6 +162,7 @@ void Renderer::renderUI() noexcept {
 			if (ImGui::Selectable(scenes[n]->getDisplayName(), isSelected)) {
 				currentSelection = n;
 			    loadSVO(*(scenes[n]->load(32)));
+				scenes[n]->release();
 			}
 			if (isSelected)
 				ImGui::SetItemDefaultFocus();
@@ -191,6 +195,7 @@ void Renderer::checkForAccumulationFrameInvalidation() noexcept {
 	static bool enableDepthOfFieldLastFrame = enableDepthOfField;
 	static float focalLengthLastFrame = focalLength, lenRadiusLastFrame = lenRadius;
 	static glm::vec3 skyColorLastFrame = skyColor, sunColorLastFrame = sunColor, sunDirLastFrame = sunDir;
+	static bool fastModeLastFrame = fastMode;
 	if (cameraPos != cameraPosLastFrame ||
 		cameraFront != cameraFrontLastFrame ||
 		enableDepthOfField != enableDepthOfFieldLastFrame ||
@@ -198,7 +203,8 @@ void Renderer::checkForAccumulationFrameInvalidation() noexcept {
 		lenRadius != lenRadiusLastFrame ||
 		skyColor != skyColorLastFrame ||
 		sunColor != sunColorLastFrame ||
-		sunDir != sunDirLastFrame
+		sunDir != sunDirLastFrame ||
+		fastMode != fastModeLastFrame
 		)  currentFrameCount = 0;
 	cameraPosLastFrame = cameraPos;
 	cameraFrontLastFrame = cameraFront;
@@ -208,6 +214,7 @@ void Renderer::checkForAccumulationFrameInvalidation() noexcept {
 	skyColorLastFrame = skyColor;
 	sunColorLastFrame = sunColor;
 	sunDirLastFrame = sunDir;
+	fastModeLastFrame = fastMode;
 }
 
 void Renderer::render() noexcept {
@@ -227,6 +234,7 @@ void Renderer::render() noexcept {
 	computeShader->setVec3("SkyColor", skyColor);
 	computeShader->setVec3("SunColor", sunColor);
 	computeShader->setVec3("SunDir", sunDir);
+	computeShader->setBool("FastMode", fastMode);
 
 	currentFrameCount += 1;
 

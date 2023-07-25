@@ -2,11 +2,10 @@
 
 // Constants
 // =========
-#define Epsilon 0.0001
+#define Epsilon 0.0005
 #define PI 3.1415926535897932384626433832795
 #define MAX_BOUNCE 3
-#define MAX_DEPTH 4096
-#define MAY_RAYTRACE_DEPTH 4096
+#define MAX_RAYTRACE_DEPTH 4096
 #define DIFFUSION_PROB 0.5
 
 // Types
@@ -42,6 +41,7 @@ uniform int CurrentFrameCount;
 uniform bool DepthOfField;
 uniform float FocalLength;
 uniform float LenRadius;
+uniform bool FastMode;
 
 uniform vec3 SunDir = normalize(vec3(-0.5, 0.75, 0.8));
 uniform vec3 SunColor = vec3(1, 1, 1);
@@ -202,7 +202,7 @@ bool raytrace(
   }
   if (t.x > 0) ro += rayDir * (t.x + Epsilon);
 
-  for (int i = 0; i < MAY_RAYTRACE_DEPTH; i++) {
+  for (int i = 0; i < MAX_RAYTRACE_DEPTH; i++) {
     bool filled = false;
     AABB box;
     findNodeAt(ro, filled, box, mat);
@@ -290,6 +290,8 @@ vec3 shadeOnce(in vec3 rayOri, in vec3 rayDir) {
             
       vec3 objCol = vec3(mat.rgb) / 255.;
       //return hitNormal/2+.5;
+      if (FastMode) return objCol;
+
       float newIR = hit ? (mat.water != 0 ? WaterIR : -1) : 1;
       // no hit
       if (!hit) {

@@ -66,8 +66,30 @@ SVO* SVO::stair(int size) {
 	return root;
 }
 
+// https://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
+inline int
+pow2roundup(int x) {
+	if (x < 0)
+		return 0;
+	--x;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return x + 1;
+}
+
 SVO* SVO::fromVox(const char* filename) {
-	SVO* root = new SVO(256);
+	int maxX = 0, maxY = 0, maxZ = 0;
+	loadVox(filename, [&](int x, int y, int z, glm::uvec3 color) {
+		maxX = std::max(maxX, x);
+		maxY = std::max(maxY, y);
+		maxZ = std::max(maxZ, z);
+	});
+	int maxOfMax = std::max(std::max(maxX, maxY), maxZ) + 1;
+
+	SVO* root = new SVO(pow2roundup(maxOfMax));
 	loadVox(filename, [&](int x, int y, int z, glm::uvec3 color) {
 		root->set(x, y, z, color);
 		});
