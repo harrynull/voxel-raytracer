@@ -17,30 +17,41 @@ A raytracer based on SVO / SVDAG, rendered with OpenGL and Compute Shader
 
 ## Screenshots
 
-![screenshot1](docs/1.png)
+![screenshot1](screenshots/1.png)
 Model from MagicaVoxel (`chr_knight.vox`)
 
-![screenshot2](docs/2.png)
+![screenshot2](screenshots/2.png)
 Depth of field
 
-![screenshot3](docs/3.png)
+![screenshot3](screenshots/3.png)
 Perlin-noise generated terrain
 
-![screenshot4](docs/4.png)
+![screenshot4](screenshots/4.png)
 Model from MagicaVoxel (`3x3x3.vox`)
 
-![screenshot5](docs/5.png)
+![screenshot5](screenshots/5.png)
 Model from MagicaVoxel (`teapot.vox`)
 
-![screenshot6](docs/6.png)
+![screenshot6](screenshots/6.png)
+![screenshot6](screenshots/4096_2.png)
+![screenshot6](screenshots/4096_3.png)
+![screenshot6](screenshot.png)
 Perlin-noise procedually generated terrain
 
-![gui](docs/gui.png)
+![gui](screenshots/gui.png)
 GUI made with imgui. Model from Magicavoxel (`monu1.vox`)
+
+![fox](screenshots/fox.png)
+![neko](screenshots/neko.png)
+![monu](screenshots/monu.png)
+![monu](screenshots/monu7.png)
+![monu](screenshots/monu8.png)
+![sponge.png](screenshots/sponge.png)
+Model by ephtracy
 
 ## Building
 
-Theorically support multiple platforms, but only tested on Windows 11 with Visual Studio 2022.
+Theoretically support multiple platforms, but only tested on Windows 11 with Visual Studio 2022.
 Open `raytracer_win.sln` and compile. You might need to install all the dependencies.
 
 ## Dependencies
@@ -91,7 +102,7 @@ Once you open the app, it will keep render the same image, accumulating the resu
 Anti-alising and DOF are both implemented by disturbing the ray origin by a small and random value. Gamma correction is implemented in `fragment.glsl` and also when storing the screenshot.
 
 ## Issues
-
+Auto-focus and screenshots may not work on some computers.
 
 ## Objectives 
 
@@ -122,7 +133,7 @@ Trans. Graph.*, vol. 32, no. 4, 2013, doi:
 * [glsl-square-frame](https://github.com/hughsk/glsl-square-frame/tree/master): Given a screen size, get values between -1 and +1 for the current pixel. Small GLSL util licensed under MIT.
 * [glsl-look-at](https://github.com/glslify/glsl-look-at): Generates a 3D lookAt matrix in GLSL. Small GLSL util licensed under MIT.
 * [glsl-camera-ray](https://github.com/glslify/glsl-camera-ray): Generates a ray for Shadertoy-style raycasting in GLSL. Small GLSL util licensed under MIT.
-
+* `vox` folder contains models from [MagicaVoxel](https://ephtracy.github.io/), [vox-models](https://github.com/kluchek/vox-models), [Celebration_6000](https://sketchfab.com/3d-models/cake-time-105bf50b62364bd98beafa60a858f898#download), [ephtracy/voxel-model](https://github.com/ephtracy/voxel-model/tree/master), [mikelovesrobots/mmmm](https://github.com/mikelovesrobots/mmmm).
 
 ## License
 GPLv3 License
